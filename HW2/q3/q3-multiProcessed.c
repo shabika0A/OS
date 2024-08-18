@@ -1,0 +1,118 @@
+// importing necessary libraries
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <wait.h>
+
+int main()
+{
+  // getting original matrix as input
+  int rows;
+  int cols;
+  printf("Enter number of rows of original array\n");
+  scanf("%d", &rows);
+  printf("Enter number of columns of original array\n");
+  scanf("%d", &cols);
+  int **mat = (int **)malloc(rows * sizeof(int*));
+  for(int i = 0; i < rows; i++) mat[i] = (int *)malloc(cols * sizeof(int));
+  printf("Enter the matrix elements\n");
+  for (int i = 0; i < rows; i++)
+  {
+    for (int j = 0; j < cols; j++)
+    {
+      scanf("%d", &mat[i][j]);
+    }
+  }
+
+  // getting window as input
+  int w_rows;
+  int w_cols;
+  printf("Enter number of rows of window array\n");
+  scanf("%d", &w_rows);
+  printf("Enter number of columns of window array\n");
+  scanf("%d", &w_cols);
+  int **window = (int **)malloc(w_rows * sizeof(int*));
+  for(int i = 0; i < w_rows; i++) 
+    window[i] = (int *)malloc(w_cols * sizeof(int));
+  printf("Enter the window matrix elements\n");
+  for (int i = 0; i < w_rows; i++)
+  {
+    for (int j = 0; j < w_cols; j++)
+    {
+      scanf("%d", &window[i][j]);
+    }
+  }
+
+  // calculating the time, taken by the operation.
+  clock_t start_t, end_t;
+  double total_t;
+  start_t = clock();
+
+
+  // here begins your code
+
+    int num_of_processes = 8; // number of processes, usually equals number of cores, which is in most cases 8.
+    int result_rows = rows - w_rows + 1; // The number of rows in the result matrix based on the number of rows in the original matrix and the window.
+    int result_cols = cols - w_cols + 1; // The number of columns in the result matrix based on the number of columns in the original matrix and the window.
+    int row_per_proc = result_rows / num_of_processes; // the number of rows in the result matrix that every process takes care of. Use variables defined above.
+    int **result = (int **)malloc((result_rows) * sizeof(int *)); // allocating memory for the result matrix.
+    for (int i = 0; i < (result_rows); i++)
+        result[i] = (int *)malloc((result_cols) * sizeof(int)); // allocating memory for each row of the result matrix. each row has a number of elements equal to the number of columns in the result matrix.
+
+    for (int proc = 0; proc < num_of_processes; proc++) {
+        pid_t pid = vfork();
+        if (pid == -1) {
+            perror("error while making fork");
+            exit(EXIT_FAILURE);
+        }
+        if (pid == 0) { // child process
+            int start_row = proc * row_per_proc;
+            int end_row = (proc == num_of_processes - 1) ? result_rows : (proc + 1) * row_per_proc;
+
+            for (int i = start_row; i < end_row; i++) {
+                for (int j = 0; j < result_cols; j++) {
+                    int sum = 0;
+                    for (int k = 0; k < w_rows; k++) {
+                        for (int l = 0; l < w_cols; l++) {
+                            sum += mat[i + k][j + l] * window[k][l];
+                        }
+                    }
+                    result[i][j] = sum;
+                }
+            }
+
+            exit(EXIT_SUCCESS);
+        }
+    }
+
+    for (int i = 0; i < num_of_processes; i++) {
+        wait(NULL);
+    }
+
+  // end section
+
+  end_t = clock();
+  total_t = (double)(end_t - start_t) / CLOCKS_PER_SEC;
+  printf("Total time taken: %f\n", total_t);
+  for (int i = 0; i < rows - w_rows + 1; i++)
+  {
+    for (int j = 0; j < cols - w_cols + 1; j++)
+    {
+      printf("%d ", result[i][j]);
+    }
+    printf("\n");
+  }
+
+  for (int i = 0; i < rows; i++)
+    free(mat[i]);
+  for (int i = 0; i < w_rows; i++)
+    free(window[i]);
+  for (int i = 0; i < (rows - w_rows + 1); i++)
+    free(result[i]);
+  free(mat);
+  free(window);
+  free(result);
+}
